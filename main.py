@@ -12,6 +12,7 @@ clock = pygame.time.Clock()
 font = pygame.font.SysFont(None, 24)
 
 COIN_RADIUS = 20
+MAX_PER_PAN = 4
 
 LEFT_PAN_POS = (250, 420)
 RIGHT_PAN_POS = (550, 420)
@@ -26,7 +27,7 @@ ALL_COINS = [
 fake_coin = random.choice(ALL_COINS)
 fake_type = random.choice(["heavier", "lighter"])
 
-# (For debugging ONLY — you can comment this out later)
+# DEBUG ONLY (comment out for submission)
 print("FAKE:", fake_coin, fake_type)
 
 def get_weight(label):
@@ -55,16 +56,14 @@ def draw_pan(center_x, center_y, label):
         border_radius=10
     )
     text = font.render(label, True, (0, 0, 0))
-    screen.blit(text, (center_x - 40, center_y - 50))
+    screen.blit(text, (center_x - 45, center_y - 50))
 
 # ------------------ CREATE COINS ------------------
 coins = []
-labels = ALL_COINS
-
 start_x, start_y = 100, 80
 x, y = start_x, start_y
 
-for label in labels:
+for label in ALL_COINS:
     coins.append({
         "label": label,
         "pos": (x, y),
@@ -78,6 +77,7 @@ for label in labels:
 
 # ------------------ GAME STATE ------------------
 weigh_result = ""
+message = ""
 
 # ------------------ MAIN LOOP ------------------
 running = True
@@ -86,7 +86,7 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        # ---- MOUSE CLICK (SELECT COINS) ----
+        # ---- SELECT COINS ----
         if event.type == pygame.MOUSEBUTTONDOWN:
             for coin in coins:
                 if coin_clicked(coin["pos"], event.pos):
@@ -118,21 +118,29 @@ while running:
 
             # ---- WEIGH ----
             if event.key == pygame.K_w:
-                left_weight = 0
-                right_weight = 0
+                left = [c for c in coins if c["zone"] == "left"]
+                right = [c for c in coins if c["zone"] == "right"]
 
-                for coin in coins:
-                    if coin["zone"] == "left":
-                        left_weight += get_weight(coin["label"])
-                    elif coin["zone"] == "right":
-                        right_weight += get_weight(coin["label"])
-
-                if left_weight == right_weight:
-                    weigh_result = "BALANCE"
-                elif left_weight > right_weight:
-                    weigh_result = "LEFT_HEAVY"
+                if (
+                    len(left) == 0
+                    or len(right) == 0
+                    or len(left) != len(right)
+                    or len(left) > MAX_PER_PAN
+                ):
+                    message = "Invalid weighing: pans must match (1–4 coins)"
+                    weigh_result = ""
                 else:
-                    weigh_result = "RIGHT_HEAVY"
+                    left_weight = sum(get_weight(c["label"]) for c in left)
+                    right_weight = sum(get_weight(c["label"]) for c in right)
+
+                    if left_weight == right_weight:
+                        weigh_result = "BALANCE"
+                    elif left_weight > right_weight:
+                        weigh_result = "LEFT_HEAVY"
+                    else:
+                        weigh_result = "RIGHT_HEAVY"
+
+                    message = ""
 
     # ------------------ DRAW ------------------
     screen.fill((240, 240, 240))
@@ -151,11 +159,9 @@ while running:
             if pool_x > 600:
                 pool_x = 100
                 pool_y += 80
-
         elif coin["zone"] == "left":
             coin["pos"] = (left_x, left_y)
             left_x += 60
-
         elif coin["zone"] == "right":
             coin["pos"] = (right_x, right_y)
             right_x += 60
@@ -167,10 +173,18 @@ while running:
             coin["selected"]
         )
 
-    # ---- DISPLAY RESULT ----
+    # ---- DISPLAY TEXT ----
     if weigh_result:
-        text = font.render(f"Result: {weigh_result}", True, (0, 0, 0))
-        screen.blit(text, (300, 520))
+        screen.blit(
+            font.render(f"Result: {weigh_result}", True, (0, 0, 0)),
+            (300, 520)
+        )
+
+    if message:
+        screen.blit(
+            font.render(message, True, (200, 0, 0)),
+            (180, 550)
+        )
 
     pygame.display.flip()
     clock.tick(60)
